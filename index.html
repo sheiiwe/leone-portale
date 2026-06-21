@@ -440,7 +440,7 @@ let MIO_PID = '', MIO_NOME = '', MIO_P = null, MIO_EMAIL = '', MIE_VENDITE = [],
 function mostra(id){
   ['v-loading','v-login','v-signup','v-signup-done','v-setpass','v-admin','v-app'].forEach(v=>{ const el=document.getElementById(v); if(el) el.style.display='none' })
   const el=document.getElementById(id); if(el) el.style.display=''
-  try{ const cb=document.getElementById('cbot-launch'); if(cb) cb.style.display=(id==='v-app'||id==='v-admin')?'flex':'none'; if(id!=='v-app'&&id!=='v-admin'){ const p=document.getElementById('cbot-panel'); if(p) p.style.display='none' } }catch(e){}
+  try{ const cb=document.getElementById('cbot-launch'); if(cb) cb.style.display='flex'; if(id!=='v-app'&&id!=='v-admin'){ const p=document.getElementById('cbot-panel'); if(p) p.style.display='none' } }catch(e){}
 }
 
 // Invito / recupero password: Supabase mette il token nell'hash dell'URL
@@ -1751,11 +1751,34 @@ function cbotBenvenuto(){
   _cbotChips(['Le mie provvigioni','Le offerte','Inviare un cliente','Documenti e firma','Contatti'])
 }
 function cbotQuick(t){ document.getElementById('cbot-input').value=t; cbotSend() }
-function cbotSend(){
+let _cbotHist=[]
+function _cbotTyping(on, node){
+  const box=document.getElementById('cbot-msgs'); if(!box) return null
+  if(on){ const d=document.createElement('div'); d.style.cssText='margin-bottom:10px;display:flex;justify-content:flex-start'; d.innerHTML='<div style="padding:9px 12px;border-radius:14px;background:#fff;border:1px solid #ececea;color:#999">sta scrivendo…</div>'; box.appendChild(d); box.scrollTop=box.scrollHeight; return d }
+  if(node&&node.remove) node.remove(); return null
+}
+function _cbotFmt(s){ return esc(String(s)).replace(/\n/g,'<br>') }
+async function cbotSend(){
   const inp=document.getElementById('cbot-input'); if(!inp) return
   const t=(inp.value||'').trim(); if(!t) return
   _cbotAdd(esc(t),'me'); inp.value=''
-  setTimeout(()=>cbotRispondi(t), 250)
+  _cbotHist.push({role:'user',content:t})
+  const typing=_cbotTyping(true)
+  try{
+    const vd=(typeof MIE_VENDITE!=='undefined'&&Array.isArray(MIE_VENDITE))?MIE_VENDITE:[]
+    const provTot=(Math.round(vd.reduce((s,v)=>s+(+(v.totProv||0)||0),0)*100)/100).toFixed(2).replace('.',',')
+    const ctx={ nome:(typeof MIO_NOME!=='undefined'?MIO_NOME:'')||'', provTot, nVendite:vd.length, fine:(typeof MIO_P!=='undefined'&&MIO_P&&MIO_P.fine)||'' }
+    const { data, error } = await db.functions.invoke('assistente', { body:{ message:t, history:_cbotHist.slice(-6), ctx } })
+    _cbotTyping(false, typing)
+    if(error || !data || !data.reply) throw (error||new Error('no reply'))
+    const reply=String(data.reply)
+    _cbotAdd(_cbotFmt(reply),'bot')
+    _cbotHist.push({role:'assistant',content:reply})
+    _cbotChips(['Le mie provvigioni','Le offerte','Inviare un cliente','Contatti'])
+  }catch(e){
+    _cbotTyping(false, typing)
+    cbotRispondi(t)   // riserva: risposte a regole se l'AI non è disponibile
+  }
 }
 function cbotRispondi(testo){
   const t=' '+testo.toLowerCase()+' '
@@ -1792,7 +1815,7 @@ function cbotRispondi(testo){
 }
 </script>
 <!-- ===== ASSISTENTE PORTALE ===== -->
-<div id="cbot-launch" onclick="cbotToggle()" style="display:none;position:fixed;right:18px;bottom:18px;z-index:9999;width:56px;height:56px;border-radius:50%;background:#F22015;color:#fff;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:26px">💬</div>
+<div id="cbot-launch" onclick="cbotToggle()" style="display:flex;position:fixed;right:18px;bottom:18px;z-index:9999;width:56px;height:56px;border-radius:50%;background:#F22015;color:#fff;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:26px">💬</div>
 <div id="cbot-panel" style="display:none;position:fixed;right:18px;bottom:84px;z-index:9999;width:340px;max-width:calc(100vw - 36px);height:480px;max-height:calc(100vh - 120px);background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.28);flex-direction:column;overflow:hidden">
   <div style="background:#171819;color:#fff;padding:13px 16px;display:flex;align-items:center;justify-content:space-between">
     <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:50%;background:#F22015;display:flex;align-items:center;justify-content:center;font-size:16px">🦁</div><div><div style="font-weight:700;font-size:14px">Assistente Leone</div><div style="font-size:11px;opacity:.7">Sempre qui per te</div></div></div>
