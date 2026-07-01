@@ -271,6 +271,7 @@ tr:last-child td{border-bottom:none}
         <div class="tab" id="tab-profilo" onclick="vai('profilo')">👤 Profilo</div>
         <div class="tab" id="tab-doc" onclick="vai('doc')">📄 Documenti</div>
         <div class="tab" id="tab-doccom" onclick="vai('doccom')">📁 Documenti commerciali</div>
+        <div class="tab" id="tab-pagamenti" onclick="vai('pagamenti')">💳 Pagamenti</div>
       </div>
 
       <!-- HOME -->
@@ -414,6 +415,34 @@ tr:last-child td{border-bottom:none}
 
       <!-- SCHEDA PROPOSTA (dettaglio + stato) -->
       <div id="pane-proposta" style="display:none"></div>
+
+      <!-- PAGAMENTI -->
+      <div id="pane-pagamenti" style="display:none">
+        <div class="card">
+          <h2 style="margin:0 0 4px;font-size:17px">Nuovo pagamento</h2>
+          <p style="color:#6b6b66;font-size:13px;margin:0 0 10px">Cerca il prodotto, selezionalo, inserisci i dati del cliente e genera il link di pagamento SumUp.</p>
+          <input id="pg-search" type="text" placeholder="🔍 Cerca corso o prodotto…" oninput="_pgFilter(this.value)" autocomplete="off" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;font-family:inherit">
+          <select id="pg-select" onchange="_pgPickFromSelect()" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;margin-top:10px;font-family:inherit;background:#fff"><option value="">— Oppure scegli dall'elenco —</option></select>
+        </div>
+        <div id="pg-prod-lista"></div>
+        <div class="card">
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:600;cursor:pointer"><input type="checkbox" id="pg-uso-personale" onchange="_pgToggleUso()" style="width:auto"> 🛒 Compro per me stesso (uso personale)</label>
+          <div id="pg-cliente-box">
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <div style="flex:1;min-width:160px"><label style="font-size:12px;font-weight:600;color:#444">Nome cliente</label><input id="pg-cli-nome" type="text" placeholder="Mario Rossi" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;margin-top:4px;font-family:inherit"></div>
+              <div style="flex:1;min-width:160px"><label style="font-size:12px;font-weight:600;color:#444">Email cliente</label><input id="pg-cli-email" type="email" placeholder="mario@email.com" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;margin-top:4px;font-family:inherit"></div>
+              <div style="flex:1;min-width:130px"><label style="font-size:12px;font-weight:600;color:#444">Telefono</label><input id="pg-cli-tel" type="tel" placeholder="+39 333 0000000" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;margin-top:4px;font-family:inherit"></div>
+            </div>
+          </div>
+          <div id="pg-preview" style="background:#f7f7f5;border:1px solid rgba(0,0,0,.1);border-radius:9px;padding:10px 12px;font-size:14px;margin:14px 0;color:#6b6b66">Cerca e seleziona un prodotto.</div>
+          <button class="btn" id="pg-genera-btn" onclick="generaPagamento()">💳 Genera link di pagamento</button>
+          <div id="pg-risultato" style="margin-top:14px"></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0;font-size:17px">Le mie vendite</h2><button onclick="caricaMieiPagamenti()" style="background:#fff;border:1px solid rgba(0,0,0,.2);border-radius:8px;padding:7px 12px;font-weight:600;cursor:pointer;font-family:inherit;font-size:13px">↻ Aggiorna</button></div>
+          <div id="pg-lista" style="margin-top:12px"><div class="empty">Caricamento…</div></div>
+        </div>
+      </div>
     </div>
 
     <div class="footer">
@@ -719,6 +748,92 @@ function vai(t){
   if(t==='doccom') caricaDocCommPortale()
   const _pp=document.getElementById('pane-proposta'); if(_pp) _pp.style.display = t==='proposta' ? 'block' : 'none'
   if(t!=='proposta') _schedaPropId=null
+  {const e=document.getElementById('tab-pagamenti'); if(e) e.classList.toggle('active', t==='pagamenti')}
+  {const e=document.getElementById('pane-pagamenti'); if(e) e.style.display = t==='pagamenti' ? 'block' : 'none'}
+  if(t==='pagamenti'){ caricaProdottiVendibili(); caricaMieiPagamenti() }
+}
+
+// ====== PAGAMENTI (procacciatore venditore) ======
+let _PG_PRODOTTI=[], _PG_SEL_ID=''
+async function caricaProdottiVendibili(){
+  _PG_SEL_ID=''
+  const s=document.getElementById('pg-search'); if(s) s.value=''
+  try{ const r=await db.from('prodotti_pagamento').select('*').eq('attivo',true).contains('aree',['proc']).order('nome'); if(r.error) throw r.error; _PG_PRODOTTI=r.data||[] }
+  catch(e){ _PG_PRODOTTI=[] }
+  _pgRenderSelect(); _pgFilter(''); _pgPreview()
+}
+function _pgRenderSelect(){
+  const s=document.getElementById('pg-select'); if(!s) return
+  s.innerHTML='<option value="">— Oppure scegli dall\u0027elenco —</option>'+_PG_PRODOTTI.map(p=>'<option value="'+p.id+'"'+(p.id===_PG_SEL_ID?' selected':'')+'>'+esc(p.nome)+' ('+eur(p.prezzo)+')</option>').join('')
+}
+function _pgPickFromSelect(){ const s=document.getElementById('pg-select'); if(s) _pgPick(s.value) }
+function _pgFilter(q){
+  const box=document.getElementById('pg-prod-lista'); if(!box) return
+  q=(q||'').trim().toLowerCase()
+  if(!_PG_PRODOTTI.length){ box.innerHTML='<div class="empty">Nessun prodotto disponibile nel catalogo.</div>'; return }
+  const lista=!q?_PG_PRODOTTI:_PG_PRODOTTI.filter(p=>((p.nome||'')+' '+(p.descrizione||'')).toLowerCase().includes(q))
+  if(!lista.length){ box.innerHTML='<div class="empty">Nessun risultato.</div>'; return }
+  box.innerHTML=lista.map(function(p){
+    const sel=p.id===_PG_SEL_ID
+    return '<div class="card" onclick="_pgPick(\u0027'+p.id+'\u0027)" style="display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;padding:14px'+(sel?';border-color:#F22015;box-shadow:inset 0 0 0 1px #F22015':'')+'">'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(p.nome)+'</div>'+(p.descrizione?'<div style="font-size:12px;color:#6b6b66">'+esc(p.descrizione)+'</div>':'')+'</div>'
+      +'<div style="font-weight:700;white-space:nowrap">'+eur(p.prezzo)+'</div>'
+      +(sel?'<div style="color:#F22015;font-weight:800;font-size:18px">\u2713</div>':'')+'</div>'
+  }).join('')
+}
+function _pgPick(id){ _PG_SEL_ID=(id===_PG_SEL_ID&&id!==''?'':id); const s=document.getElementById('pg-select'); if(s) s.value=_PG_SEL_ID; _pgFilter((document.getElementById('pg-search')||{}).value||''); _pgPreview(); const pv=document.getElementById('pg-preview'); if(_PG_SEL_ID&&pv) pv.scrollIntoView({behavior:'smooth',block:'center'}) }
+function _pgProdSel(){ return _PG_PRODOTTI.find(p=>p.id===_PG_SEL_ID)||null }
+function _pgToggleUso(){ const uso=document.getElementById('pg-uso-personale').checked; const box=document.getElementById('pg-cliente-box'); if(box) box.style.display=uso?'none':'block'; _pgPreview() }
+function _pgPreview(){
+  const el=document.getElementById('pg-preview'); if(!el) return
+  const p=_pgProdSel()
+  if(!p){ el.innerHTML='Cerca e seleziona un prodotto.'; return }
+  const uso=document.getElementById('pg-uso-personale').checked
+  const prezzo=Number(p.prezzo||0), pct=Number(p.provvigione_pct||0), prov=Math.round(prezzo*pct)/100
+  if(uso){ el.innerHTML='<b>'+esc(p.nome)+'</b><br><b>Uso personale</b> \u00b7 tu paghi <b>'+eur(prezzo-prov)+'</b> <span style="color:#6b6b66">(prezzo '+eur(prezzo)+' meno la tua provvigione '+eur(prov)+')</span>' }
+  else { el.innerHTML='<b>'+esc(p.nome)+'</b><br>Il cliente paga <b>'+eur(prezzo)+'</b> \u00b7 la tua provvigione: <b>'+eur(prov)+'</b> ('+pct+'%)' }
+}
+async function generaPagamento(){
+  const p=_pgProdSel()
+  if(!p){ alert('Seleziona un prodotto.'); return }
+  const uso=document.getElementById('pg-uso-personale').checked
+  const cliente={ nome:document.getElementById('pg-cli-nome').value.trim(), email:document.getElementById('pg-cli-email').value.trim(), tel:document.getElementById('pg-cli-tel').value.trim() }
+  if(!uso && !cliente.nome){ alert('Inserisci il nome del cliente (oppure spunta \u0022uso personale\u0022).'); return }
+  const btn=document.getElementById('pg-genera-btn'); btn.disabled=true; const _t=btn.innerHTML; btn.innerHTML='Creo il pagamento\u2026'
+  const out=document.getElementById('pg-risultato'); out.innerHTML=''
+  try{
+    const r=await db.functions.invoke('crea-pagamento',{ body:{ prodottoId:p.id, area:'proc', venditoreId:MIO_PID||'', venditoreNome:MIO_NOME||'', usoPersonale:uso, cliente:cliente } })
+    const d=r.data||{}
+    if(r.error||d.error||!d.url){ throw new Error(d.error||(r.error&&r.error.message)||'Errore creazione pagamento') }
+    const url=d.url
+    out.innerHTML='<div style="background:#eef7ee;border:1px solid #b9dcb9;border-radius:9px;padding:12px">'
+      +'<div style="font-weight:700;margin-bottom:8px;color:#2e7d32">\u2705 Link di pagamento pronto ('+eur(d.importo)+')</div>'
+      +'<input id="pg-url" type="text" readonly value="'+esc(url)+'" style="width:100%;padding:9px;border:1px solid rgba(0,0,0,.15);border-radius:7px;font-size:13px">'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'
+      +'<button onclick="_pgCopy()" style="background:#fff;border:1px solid rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;font-weight:600;cursor:pointer;font-family:inherit">\ud83d\udccb Copia link</button>'
+      +'<a href="https://wa.me/?text='+encodeURIComponent('Ecco il link per il pagamento: '+url)+'" target="_blank" rel="noopener" style="background:#fff;border:1px solid rgba(0,0,0,.2);border-radius:8px;padding:8px 12px;font-weight:600;text-decoration:none;color:#1a1a18">\ud83d\udcf2 WhatsApp</a>'
+      +'<a href="'+esc(url)+'" target="_blank" rel="noopener" style="background:#F22015;border:none;border-radius:8px;padding:8px 14px;font-weight:600;text-decoration:none;color:#fff">\ud83d\udcb3 Fai pagare ora</a>'
+      +'</div><div style="font-size:12px;color:#6b6b66;margin-top:8px">La vendita comparir\u00e0 qui sotto come \u0022pagata\u0022 appena il cliente completa il pagamento.</div></div>'
+  }catch(e){ out.innerHTML='<div style="color:#F22015;font-weight:600">Errore: '+esc((e&&e.message)||e)+'</div>' }
+  btn.disabled=false; btn.innerHTML=_t
+}
+function _pgCopy(){ const i=document.getElementById('pg-url'); if(!i) return; i.select(); try{ document.execCommand('copy') }catch(e){}; if(navigator.clipboard) navigator.clipboard.writeText(i.value).catch(()=>{}) }
+async function caricaMieiPagamenti(){
+  const box=document.getElementById('pg-lista'); if(!box) return
+  try{
+    const r=await db.from('pagamenti').select('*').order('created_at',{ascending:false}).limit(100)
+    if(r.error) throw r.error
+    const rows=r.data||[]
+    if(!rows.length){ box.innerHTML='<div class="empty">Ancora nessuna vendita.</div>'; return }
+    box.innerHTML=rows.map(function(p){
+      const pagato=p.stato==='paid'
+      const badge=pagato?'<span style="background:#3B6D11;color:#fff;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700">PAGATO</span>':(p.stato==='failed'?'<span style="background:#bbb;color:#fff;padding:2px 8px;border-radius:999px;font-size:12px">fallito</span>':'<span style="background:#e6a700;color:#fff;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700">in attesa</span>')
+      const chi=p.uso_personale?'<span style="color:#6b6b66">(uso personale)</span>':esc(p.cliente_nome||'\u2014')
+      const prov=p.uso_personale?'':(' \u00b7 provv. '+eur(p.provvigione_importo))
+      const data=(p.created_at||'').slice(0,10)
+      return '<div class="card" style="padding:12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b>'+esc(p.prodotto_nome||'')+'</b> \u00b7 '+chi+'</div>'+badge+'</div><div style="color:#6b6b66;font-size:13px;margin-top:4px">'+eur(p.importo_pagato)+prov+' \u00b7 '+data+'</div></div>'
+    }).join('')
+  }catch(e){ box.innerHTML='<div style="color:#F22015">Errore caricamento: '+esc((e&&e.message)||e)+'</div>' }
 }
 
 // ── RENDER ────────────────────────────────────────────────────
