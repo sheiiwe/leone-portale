@@ -70,6 +70,39 @@ tr:last-child td{border-bottom:none}
 .notice{background:#FAEEDA;color:#854F0B;border-radius:10px;padding:14px 16px;font-size:13px;line-height:1.5}
 .footer{text-align:center;font-size:11px;color:#9e9e98;margin-top:18px;line-height:1.6}
 @media(max-width:520px){.stat .v{font-size:16px}.header .brand h1{font-size:15px}}
+
+/* ── Dashboard v-app in stile AdminLTE: sidebar + contenuto ── */
+.hamb{display:none;background:rgba(255,255,255,.16);border:none;color:#fff;width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:16px;flex:0 0 auto}
+.hamb:hover{background:rgba(255,255,255,.28)}
+.app-shell{display:flex;align-items:flex-start}
+.app-sidebar{width:224px;flex:0 0 224px;background:#1b1d21;padding:14px 0 30px;position:sticky;top:70px;align-self:flex-start;height:calc(100vh - 70px);overflow-y:auto;box-sizing:border-box}
+.app-sidebar .sb-head{padding:14px 18px 6px;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#6b6f76}
+.app-sidebar .sb-head:first-child{padding-top:6px}
+.app-sidebar .tab{all:unset;display:flex;align-items:center;gap:11px;padding:10px 18px;font-size:13.5px;font-weight:600;color:#c6c8cc;cursor:pointer;border-left:3px solid transparent;box-sizing:border-box;width:100%}
+.app-sidebar .tab:hover{background:rgba(255,255,255,.06);color:#fff}
+.app-sidebar .tab.active{background:rgba(242,32,21,.16);border-left-color:#F22015;color:#fff}
+.app-sidebar .tab .ic{width:16px;text-align:center;font-size:14.5px;flex:0 0 auto}
+.app-main{flex:1;min-width:0;padding:20px 22px 40px;max-width:1040px;box-sizing:border-box}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:14}
+.sb-overlay.on{display:block}
+@media(max-width:900px){
+  .hamb{display:inline-flex;align-items:center;justify-content:center}
+  .app-sidebar{position:fixed;top:0;left:0;height:100vh;transform:translateX(-100%);transition:transform .25s ease;box-shadow:2px 0 18px rgba(0,0,0,.3);z-index:15}
+  .app-sidebar.open{transform:translateX(0)}
+  .app-main{padding:16px 14px 40px}
+}
+
+/* KPI colorate (usate nella scheda Provvigioni) */
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat{border-radius:12px;padding:16px 18px;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.10);text-align:left;background:linear-gradient(135deg,#F22015,#c81a11)}
+.stat.green{background:linear-gradient(135deg,#3B6D11,#2c5209)}
+.stat.amber{background:linear-gradient(135deg,#c9821a,#a5690f)}
+.stat .v{font-size:21px;font-weight:800;color:#fff;line-height:1.15}
+.stat .l{font-size:11px;color:rgba(255,255,255,.9);margin-top:4px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+@media(max-width:640px){.stat-grid{grid-template-columns:1fr}}
+
+/* box con bordo colorato in alto, stile pannello */
+.app-main .card{border-top:3px solid #F22015;box-shadow:0 3px 12px rgba(0,0,0,.06)}
 </style>
 </head>
 <body>
@@ -253,31 +286,41 @@ tr:last-child td{border-bottom:none}
 <!-- APP PROCACCIATORE -->
 <div id="v-app" style="display:none">
   <div class="header">
-    <div class="brand" onclick="vai('home')" style="cursor:pointer"><img class="logo-sm js-logo" alt="LC"><div><h1>Leone Consulting</h1><p>Portale Procacciatori</p></div></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="hamb" onclick="toggleSidebar()" title="Menu">☰</button>
+      <div class="brand" onclick="vai('home')" style="cursor:pointer"><img class="logo-sm js-logo" alt="LC"><div><h1>Leone Consulting</h1><p>Portale Procacciatori</p></div></div>
+    </div>
     <div class="who"><span id="who-nome">—</span><br><button class="logout" onclick="tornaIndietro()" style="margin-right:6px">← Indietro</button><button class="logout" onclick="logout()">Esci</button></div>
   </div>
-  <div class="container">
-    <div id="no-profile" class="card" style="display:none">
-      <div class="notice">Il tuo accesso non risulta ancora collegato a una scheda procacciatore. Contatta Leone Consulting indicando l'email con cui hai effettuato l'accesso: <strong id="np-email"></strong></div>
-    </div>
-
-    <div id="app-content" style="display:none">
-      <div class="tabs">
-        <div class="tab active" id="tab-home" onclick="vai('home')">🏠 Home</div>
-        <div class="tab" id="tab-prov" onclick="vai('prov')">💰 Provvigioni</div>
-        <div class="tab" id="tab-bacheca" onclick="vai('bacheca')">📣 Bacheca</div>
-        <div class="tab" id="tab-listino" onclick="vai('listino')">💶 Listino</div>
-        <div class="tab" id="tab-offerte" onclick="vai('offerte')">💡 Offerte</div>
-        <div class="tab" id="tab-avvisi" onclick="vai('avvisi')">🔔 Avvisi</div>
-        <div class="tab" id="tab-lead" onclick="vai('lead')">📋 I miei Lead</div>
-        <div class="tab" id="tab-profilo" onclick="vai('profilo')">👤 Profilo</div>
-        <div class="tab" id="tab-doc" onclick="vai('doc')">📄 Documenti</div>
-        <div class="tab" id="tab-doccom" onclick="vai('doccom')">📁 Documenti commerciali</div>
-        <div class="tab" id="tab-pagamenti" onclick="vai('pagamenti')">💳 Pagamenti</div>
-      </div>
+  <div id="no-profile" class="card" style="display:none;margin:18px 18px 0">
+    <div class="notice">Il tuo accesso non risulta ancora collegato a una scheda procacciatore. Contatta Leone Consulting indicando l'email con cui hai effettuato l'accesso: <strong id="np-email"></strong></div>
+  </div>
+  <div id="app-content" style="display:none">
+    <div class="app-shell">
+      <div class="sb-overlay" id="sb-overlay" onclick="toggleSidebar(false)"></div>
+      <aside class="app-sidebar" id="app-sidebar">
+        <div class="sb-head">Principale</div>
+        <div class="tab active" id="tab-home" onclick="vai('home')"><span class="ic">🏠</span> Home</div>
+        <div class="sb-head">Attività</div>
+        <div class="tab" id="tab-prov" onclick="vai('prov')"><span class="ic">💰</span> Provvigioni</div>
+        <div class="tab" id="tab-lead" onclick="vai('lead')"><span class="ic">📋</span> I miei Lead</div>
+        <div class="tab" id="tab-pagamenti" onclick="vai('pagamenti')"><span class="ic">💳</span> Pagamenti</div>
+        <div class="sb-head">Catalogo</div>
+        <div class="tab" id="tab-listino" onclick="vai('listino')"><span class="ic">💶</span> Listino</div>
+        <div class="tab" id="tab-offerte" onclick="vai('offerte')"><span class="ic">💡</span> Offerte</div>
+        <div class="tab" id="tab-avvisi" onclick="vai('avvisi')"><span class="ic">🔔</span> Avvisi</div>
+        <div class="sb-head">Community</div>
+        <div class="tab" id="tab-bacheca" onclick="vai('bacheca')"><span class="ic">📣</span> Bacheca</div>
+        <div class="sb-head">Il tuo account</div>
+        <div class="tab" id="tab-profilo" onclick="vai('profilo')"><span class="ic">👤</span> Profilo</div>
+        <div class="tab" id="tab-doc" onclick="vai('doc')"><span class="ic">📄</span> Documenti</div>
+        <div class="tab" id="tab-doccom" onclick="vai('doccom')"><span class="ic">📁</span> Documenti commerciali</div>
+      </aside>
+      <div class="app-main">
 
       <!-- HOME -->
       <div id="pane-home" style="display:block">
+
         <div id="home-content"></div>
         <div id="home-avvisi" style="margin-top:14px"></div>
       </div>
@@ -455,11 +498,13 @@ tr:last-child td{border-bottom:none}
       </div>
     </div>
 
-    <div class="footer">
-      Leone Consulting di Leonardo Angelucci<br>
-      Via Pia 42, 00049 Velletri (RM) · P.IVA 18231181001
-    </div>
-  </div>
+      <div class="footer">
+        Leone Consulting di Leonardo Angelucci<br>
+        Via Pia 42, 00049 Velletri (RM) · P.IVA 18231181001
+      </div>
+      </div><!-- /app-main -->
+    </div><!-- /app-shell -->
+  </div><!-- /app-content -->
 </div>
 
 <script>
@@ -733,7 +778,15 @@ async function apriSchedaProposta(id){
   _schedaPropId=id
   renderSchedaProposta(p||null)
 }
+function toggleSidebar(force){
+  const sb=document.getElementById('app-sidebar'), ov=document.getElementById('sb-overlay')
+  if(!sb) return
+  const on = force!==undefined ? force : !sb.classList.contains('open')
+  sb.classList.toggle('open', on)
+  if(ov) ov.classList.toggle('on', on)
+}
 function vai(t){
+  if(window.innerWidth<=900) toggleSidebar(false)
   document.getElementById('tab-home').classList.toggle('active', t==='home')
   document.getElementById('tab-prov').classList.toggle('active', t==='prov')
   document.getElementById('tab-bacheca').classList.toggle('active', t==='bacheca')
